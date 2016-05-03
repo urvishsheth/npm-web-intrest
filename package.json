@@ -1,0 +1,15 @@
+{
+  "name": "keywords-app",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "DEBUG=apps:* node server.js"
+  },
+  "dependencies": {
+    "debug": "~2.2.0",
+    "express": "~4.12.4",
+    "glossary": "^0.1.1",
+    "html-to-text": "^2.1.0",
+    "mongoose": "^4.4.3"
+  }
+}
