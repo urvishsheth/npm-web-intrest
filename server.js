@@ -22,9 +22,7 @@ var keywordsSchema = mongoose.Schema({
   keyword: String,
   slug: String,
   count: Number,
-  realatedPosts: {
-    type: Array
-  },
+  realatedPosts: [String],
   createdAt: {
     type: Date,
     default: new Date()
@@ -70,34 +68,47 @@ function findKeywords(text, cb) {
 }
 
 function insertKeywords(keywords, postIDs, index, cb) {
+  debugger;
   //debug('creating objects :', index, '/', keywords.length);
   if (index < keywords.length) {
     var word = keywords[index];
     var slugToSave = word.word.toLowerCase().replace(/[^a-z0-9]/g, "-");
     var query = {'slug': slugToSave};
     //debug(postIDs);
-    var newData = new Array;
-    newData = postIDs;
-    var t = new keywordsModel();
-    t._id = mongoose.Types.ObjectId().toString();
-    t.active = true;
-    t.keyword = word.word;
-    t.slug = slugToSave;
-    t.count = word.count;
-    t.relatedPosts = newData;
+
+    var data = {
+      _id: mongoose.Types.ObjectId().toString(),
+      active: true,
+      keyword: word.word,
+      slug: slugToSave,
+      count: word.count,
+      relatedPosts: postIDs
+    };
+
+    var t = new keywordsModel(data);
+    t._doc.realatedPosts = postIDs;
+    //t._id = mongoose.Types.ObjectId().toString();
+    //t.active = true;
+    //t.keyword = word.word;
+    //t.slug = slugToSave;
+    //t.count = word.count;
+    //t.relatedPosts = postIDs;
     t.markModified('relatedPosts');
+    //debug(t.relatedPosts);
+
     keywordsModel.findOne(query, function (err, keyword) {
         if (!err) {
           if (!keyword) {
             keyword = t;
           } else {
-            debug('keyword Found');
+            //debug('keyword Found');
             keyword.count = keyword.count + t.count;
-            debug(postIDs);
+            //debug(postIDs);
             var newRelatedPosts = keyword.realatedPosts;
+            debugger;
             for (var i = 0; i < postIDs.length; i = i + 1) {
               var postID = postIDs[i];
-              if (newRelatedPosts.indexOf(postID) != -1) {
+              if (newRelatedPosts.indexOf(postID) == -1) {
                 newRelatedPosts.push(postID);
               }
             }
@@ -123,7 +134,7 @@ function insertKeywords(keywords, postIDs, index, cb) {
 
 function convertAndInsertContentInKeywords(postContentData, index, cb) {
   if (index < postContentData.length) {
-    debug('Proccecing :',index,'/',postContentData.length);
+    debug('Proccecing :', index, '/', postContentData.length);
     var postContent = postContentData[index];
     var path = postContent.fullContent;
     var highlightedObject = postContent.highlightObject;

@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "DEBUG=apps:* node server.js"
+    "start": "DEBUG=apps:* node server.js",
+    "debug": "DEBUG=apps:* ./node_modules/.bin/node-debug server.js"
   },
   "dependencies": {
     "debug": "~2.2.0",
@@ -11,5 +12,8 @@
     "glossary": "^0.1.1",
     "html-to-text": "^2.1.0",
     "mongoose": "^4.4.3"
+  },
+  "devDependencies": {
+    "node-inspector": "^0.12.8"
   }
 }
