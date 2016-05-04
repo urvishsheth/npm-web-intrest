@@ -7,6 +7,7 @@ var app = express(); // create our app w/ express
 var mongoose = require('mongoose'); // mongoose for mongodb
 var port = 4000; // set the port
 var http = require('http');
+var _ = require('underscore-node');
 //var fs = require('fs');
 
 // configuration ===============================================================
@@ -22,7 +23,7 @@ var keywordsSchema = mongoose.Schema({
   keyword: String,
   slug: String,
   count: Number,
-  realatedPosts: [String],
+  relatedPosts: [String],
   createdAt: {
     type: Date,
     default: new Date()
@@ -70,66 +71,70 @@ function findKeywords(text, cb) {
 function insertKeywords(keywords, postIDs, index, cb) {
   debugger;
   //debug('creating objects :', index, '/', keywords.length);
-  if (index < keywords.length) {
-    var word = keywords[index];
-    var slugToSave = word.word.toLowerCase().replace(/[^a-z0-9]/g, "-");
-    var query = {'slug': slugToSave};
-    //debug(postIDs);
 
-    var data = {
-      _id: mongoose.Types.ObjectId().toString(),
-      active: true,
-      keyword: word.word,
-      slug: slugToSave,
-      count: word.count,
-      relatedPosts: postIDs
-    };
-
-    var t = new keywordsModel(data);
-    t._doc.realatedPosts = postIDs;
-    //t._id = mongoose.Types.ObjectId().toString();
-    //t.active = true;
-    //t.keyword = word.word;
-    //t.slug = slugToSave;
-    //t.count = word.count;
-    //t.relatedPosts = postIDs;
-    t.markModified('relatedPosts');
-    //debug(t.relatedPosts);
-
-    keywordsModel.findOne(query, function (err, keyword) {
-        if (!err) {
-          if (!keyword) {
-            keyword = t;
-          } else {
-            //debug('keyword Found');
-            keyword.count = keyword.count + t.count;
-            //debug(postIDs);
-            var newRelatedPosts = keyword.realatedPosts;
-            debugger;
-            for (var i = 0; i < postIDs.length; i = i + 1) {
-              var postID = postIDs[i];
-              if (newRelatedPosts.indexOf(postID) == -1) {
-                newRelatedPosts.push(postID);
-              }
-            }
-            keyword.relatedPosts = newRelatedPosts;
-          }
-          keyword.save(function (err) {
-            if (!err) {
-              //console.log("keyword saved:" + keyword);
-              //debug('saving objects :', index, '/', keywords.length);
-              cb('Success');
-            }
-            else {
-              console.log("Error: could not save contact " + keyword);
-              cb(err);
-            }
-          });
-        }
-      }
-    );
-    insertKeywords(keywords, postIDs, index + 1, cb);
+  if (index >= keywords.length) {
+    cb('Completed...');
+    return;
   }
+
+  var word = keywords[index];
+  var slugToSave = word.word.toLowerCase().replace(/[^a-z0-9]/g, "-");
+  var query = {'slug': slugToSave};
+  //debug(postIDs);
+
+  var data = {
+    _id: mongoose.Types.ObjectId().toString(),
+    active: true,
+    keyword: word.word,
+    slug: slugToSave,
+    count: word.count,
+    relatedPosts: postIDs
+  };
+
+  var t = new keywordsModel(data);
+  t._doc.relatedPosts = postIDs;
+  //t._id = mongoose.Types.ObjectId().toString();
+  //t.active = true;
+  //t.keyword = word.word;
+  //t.slug = slugToSave;
+  //t.count = word.count;
+  //t.relatedPosts = postIDs;
+  t.markModified('relatedPosts');
+  //debug(t.relatedPosts);
+
+  keywordsModel.findOne(query, function (err, keyword) {
+      if (!err) {
+        if (!keyword) {
+          keyword = t;
+        } else {
+          //debug('keyword Found');
+          keyword.count = keyword.count + t.count;
+          var newRelatedPosts = keyword._doc.relatedPosts;
+          for (var i = 0; i < postIDs.length; i = i + 1) {
+            var postID = postIDs[i];
+            if (newRelatedPosts.indexOf(postID) == -1) {
+              newRelatedPosts.push(postID);
+            }
+          }
+          keyword.relatedPosts = newRelatedPosts;
+          //debug('newRelatedPosts',newRelatedPosts,'postIDs',postIDs);
+          //keyword.relatedPosts = _.union(newRelatedPosts,postIDs);
+          //debug(keyword.relatedPosts);
+        }
+        keyword.save(function (err) {
+          if (!err) {
+            //console.log("keyword saved:" + keyword);
+            //debug('saving objects :', index, '/', keywords.length);
+
+          }
+          else {
+            console.log("Error: could not save contact " + keyword);
+          }
+          insertKeywords(keywords, postIDs, index + 1, cb);
+        });
+      }
+    }
+  );
 }
 
 function convertAndInsertContentInKeywords(postContentData, index, cb) {
@@ -139,18 +144,16 @@ function convertAndInsertContentInKeywords(postContentData, index, cb) {
     var path = postContent.fullContent;
     var highlightedObject = postContent.highlightObject;
     var postIDs = [];
-    for (var i = 0; i < highlightedObject.length; i = i + 1) {
-      postIDs.push(highlightedObject[i].postId);
-    }
-    //debug(postIDs);
+    postIDs = _.pluck(highlightedObject,'postId');
+    debug(postIDs);
     convertHtmlToText(path, function (text) {
       findKeywords(text, function (keywords) {
         insertKeywords(keywords, postIDs, 0, function (err) {
           debug(err);
+          convertAndInsertContentInKeywords(postContentData, index + 1, cb);
         });
       });
     });
-    convertAndInsertContentInKeywords(postContentData, index + 1, cb);
   } else {
     debug('Insertion succesfull');
     cb('Success');
@@ -163,7 +166,7 @@ function init() {
     if (err) return console.error(err);
     //debug('post ContentsL:', postContentData);
     convertAndInsertContentInKeywords(postContentData, 0, function (str) {
-      debug(str);
+      //debug(str);
     });
   });
   //var keywords = glossary.extract("Urvish Sheth Designing for the Web vs. Apps in the Mobile Era Mobile is on rise, as are mobile apps. Although the web is still relevant, mobile apps are here to stay. These days, there is more and more pressure to deliver appealing user experience, and design does the job. In order to design delightful user experience, we need to understand what we are dealing with. Let’s start with understanding what web does for us and what apps do for us. Web was here for quite a long time and still is — under the name Responsive Web. The evolution of web was a direct response to evolving mobile context. So is there any difference in designing for web and designing for apps in the mobile era? Mobile is still growing, and apps are becoming a big part of our lives, helping us to move through our days. Mobile users have little time, short attention spans, small screens and can be easily distracted. Under this context, we will understand key goals for web and apps.");
